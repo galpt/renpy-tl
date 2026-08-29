@@ -1,6 +1,6 @@
-renpy-tl
-renpy-tl.exe
-renpy-tl.toml
+/renpy-tl
+/renpy-tl.exe
+/renpy-tl.toml
 *.bak.*
 testdata/output/*
 !testdata/output/.gitkeep
