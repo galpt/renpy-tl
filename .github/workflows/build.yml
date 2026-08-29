@@ -60,17 +60,18 @@ jobs:
           go build -ldflags "-s -w -X main.Version=${TAG}" -o "dist/renpy-tl-${{ matrix.name }}${{ matrix.ext }}" ./cmd/renpy-tl
       - name: Archive
         run: |
+          TS=$(date -u +"%Y%m%d-%H%M%S")
           cd dist
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            zip "renpy-tl-${{ matrix.name }}.zip" "renpy-tl-${{ matrix.name }}${{ matrix.ext }}"
-          else
-            tar -czf "renpy-tl-${{ matrix.name }}.tar.gz" "renpy-tl-${{ matrix.name }}"
-          fi
+          cp ../renpy-tl.toml.example renpy-tl.toml
+          zip "renpy-tl-${{ matrix.name }}-${TS}.zip" "renpy-tl-${{ matrix.name }}${{ matrix.ext }}" renpy-tl.toml
+          rm renpy-tl.toml
+          ls -lh "renpy-tl-${{ matrix.name }}-${TS}.zip"
+          unzip -l "renpy-tl-${{ matrix.name }}-${TS}.zip"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: renpy-tl-${{ matrix.name }}
-          path: dist/renpy-tl-${{ matrix.name }}.*
+          path: dist/*.zip
 
   release:
     runs-on: ubuntu-latest
