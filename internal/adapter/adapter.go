@@ -146,14 +146,24 @@ func (a *Adapter) TranslateChunk(units []interface{}) (map[string]string, error)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := a.Client.Do(req)
 	if err != nil {
-		return map[string]string{}, nil
+		return nil, fmt.Errorf("could not reach the translation service. Please check your internet connection and try again")
 	}
 	defer resp.Body.Close()
 	var body bytes.Buffer
 	_, _ = body.ReadFrom(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// fail closed, do not expose key
-		return map[string]string{}, nil
+		// The model may no longer be available. Show a clear message and exit.
+		// Do not expose the API key.
+		msg := body.String()
+		if resp.StatusCode == 404 || resp.StatusCode == 400 {
+			if strings.Contains(strings.ToLower(msg), "model") {
+				return nil, fmt.Errorf("the model %q is not available. Please open renpy-tl.toml and set ai-model to a valid model, for example \"muse-spark-1.2-contributor\"", a.Model)
+			}
+		}
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			return nil, fmt.Errorf("the API key was rejected. Please check opencode-api-key in renpy-tl.toml")
+		}
+		return nil, fmt.Errorf("the translation service returned an error (%d). Please try again later", resp.StatusCode)
 	}
 	var obj map[string]interface{}
 	if err := json.Unmarshal(body.Bytes(), &obj); err != nil {

@@ -4,12 +4,12 @@ Standalone Go tool to fill empty `new ""` entries in Ren'Py translation files.
 
 ## Overview
 
-Ren'Py generates translation stubs under `game/tl/<language>/` with the English line commented and an empty `new ""` below. This tool translates those entries via OpenCode Go, chunked per file so model limits are never hit. Only `new ""` is filled, hashes and `old` stay unchanged.
+Ren'Py generates translation stubs under `game/tl/<language>/` with the English line commented and an empty `new ""` below. This tool translates those entries through OpenCode Go and processes each file in chunks so model limits are never reached. Only `new ""` is filled, while hashes and `old` remain unchanged.
 
 ## Prerequisites
 
 - Go 1.22
-- OpenCode Go API key from https://opencode.ai/auth (subscribe to Go, copy key)
+- An OpenCode Go API key from https://opencode.ai/auth. You can subscribe to Go and copy the key there.
 
 ## Install
 
@@ -19,7 +19,7 @@ cd renpy-tl
 go build -o renpy-tl ./cmd/renpy-tl
 ```
 
-Cross compile without cgo:
+Cross compilation works without cgo.
 
 ```bash
 GOOS=linux GOARCH=amd64 go build -o renpy-tl ./cmd/renpy-tl
@@ -28,7 +28,7 @@ GOOS=windows GOARCH=amd64 go build -o renpy-tl.exe ./cmd/renpy-tl
 
 ## Configuration
 
-Create `renpy-tl.toml` in the same directory as the binary:
+Create `renpy-tl.toml` in the same directory as the binary.
 
 ```toml
 ai-model = "muse-spark-1.2-contributor"
@@ -37,21 +37,21 @@ opencode-api-key = "sk-..."
 
 See `renpy-tl.toml.example` for the template. No environment variables are used.
 
-- `ai-model` defaults to `muse-spark-1.2-contributor` and falls back to the same model if unavailable.
-- `opencode-api-key` is required for real runs, not for `--mock` or `--dry-run`.
+- `ai-model` defaults to `muse-spark-1.2-contributor`. If the model is no longer available, the tool prints a clear error and stops.
+- `opencode-api-key` is required for real runs. It is not needed for `--mock` or `--dry-run`.
 - The key is never logged.
 
 ## Usage
 
-Generate empty translations in Ren'Py first, then run:
+Generate empty translations in Ren'Py first, then run the helper.
 
-Dry preview with mock (no key needed):
+Dry preview with mock. No key is needed.
 
 ```bash
 ./renpy-tl --input-folder ./game/tl/german --output-folder ./game/tl/german --translate-to german --dry-run --mock
 ```
 
-Real run:
+Real run.
 
 ```bash
 ./renpy-tl --input-folder ./input --output-folder ./output --translate-to german
@@ -59,30 +59,30 @@ Real run:
 
 If input and output are the same folder, files are updated in place.
 
-Flags:
+Flags.
 
-- `--input-folder` path with `.rpy` files
-- `--output-folder` path for translated files, created if missing
-- `--translate-to` target language, must match `^[a-z0-9_]{2,32}$`, `piglatin` and similar are rejected
-- `--dry-run` do not write, validate only
-- `--mock` use deterministic `TR: ` prefix, skips network
+- `--input-folder` is the path that holds the `.rpy` files.
+- `--output-folder` is the path for translated files. It is created if missing.
+- `--translate-to` is the target language. It must match `^[a-z0-9_]{2,32}$`. Names like `piglatin` are rejected.
+- `--dry-run` does not write files. It only validates.
+- `--mock` uses a deterministic `TR: ` prefix and skips the network.
 
-Per file behavior:
+Per file behavior.
 
-- backup `name.rpy.bak.<timestamp>` before write
-- temp file in same directory, flushed and synced, atomic rename, directory fsync
-- EXDEV fallback copies when rename crosses devices
-- on Windows `O_DIRECTORY` is handled via fallback open
+- A backup named `name.rpy.bak.<timestamp>` is created before the write.
+- A temporary file is created in the same directory, flushed and synced, then atomically renamed. The directory is synced afterwards.
+- When rename crosses devices, the tool falls back to copying.
+- On Windows the `O_DIRECTORY` case is handled through a fallback open.
 
 Idempotent re-run yields `files_written: 0` when no empty entries remain.
 
 ## How it works
 
-- Parser handles BOM, `\r\n` and `\n`, and backslash newline continuation. Size caps are 2 MB per file and 4 KB per string. `HASH_RE` is `_[0-9a-f]{20}_[0-9a-f]{24}(?:_\d+)?` and `TRANSLATE_RE` is `^translate\s+(?P<lang>[a-zA-Z0-9_]+)\s+(?P<ident>.+?)\s*:\s*$`.
-- Chunker budgets are 500 pairs, 1500 lines, 80000 tokens estimated as `chars/4`, per file streaming, never split a block.
-- Validator checks nine invariants fail closed: hash unchanged, old unchanged, only empty filled, block counts steady, escaping valid via `quote_unicode` roundtrip, tags exact multiset `{b}` `[var]` `%%`, speaker and suffix preserved, newline count, and parseability after write.
-- Adapter uses `net/http` against `https://opencode.ai/zen/go/v1`, supports both `chat/completions` and `responses` endpoints, strict JSON, `temperature 0.2`.
-- Writer uses two phase batch, keeps block order, preserves `has_bom`, indent, speaker, and suffix.
+- The parser handles BOM, line endings and backslash newline continuation. Size caps are 2 MB per file and 4 KB per string. `HASH_RE` is `_[0-9a-f]{20}_[0-9a-f]{24}(?:_\d+)?` and `TRANSLATE_RE` is `^translate\s+(?P<lang>[a-zA-Z0-9_]+)\s+(?P<ident>.+?)\s*:\s*$`.
+- The chunker uses budgets of 500 pairs, 1500 lines and 80000 tokens. Tokens are estimated as `chars/4`. Each file is streamed separately and no block is ever split.
+- The validator checks nine invariants and fails closed when any check does not pass. Hash remains unchanged, old remains unchanged, only empty entries are filled, block counts stay steady, escaping is valid through a `quote_unicode` roundtrip, tags form an exact multiset, speaker and suffix are preserved, newline count is preserved, and the file remains parseable after the write.
+- The adapter uses `net/http` against `https://opencode.ai/zen/go/v1` and supports both `chat/completions` and `responses` endpoints. It uses strict JSON and a temperature of 0.2.
+- The writer uses a two phase batch. It keeps block order and preserves `has_bom`, indent, speaker and suffix.
 
 ## Test
 
@@ -94,15 +94,15 @@ go build -o renpy-tl ./cmd/renpy-tl
 cat testdata/output/sample.rpy
 ```
 
-Check that only `new ""` became `new "TR: ..."` and tags like `{b}` `[player]` remain.
+Check that only `new ""` became `new "TR: ..."` and that tags like `{b}` and `[player]` remain.
 
 ## Troubleshooting
 
-- `error: invalid language: ...` language must be 2 to 32 chars `a-z0-9_`, no path traversal
-- `input folder not found` run from repo root or pass absolute path
-- `file too large: ... > 2097152` file exceeds 2 MB, split it
-- `tags mismatch` skipped entries stay empty for manual review, check validator output
-- `opencode-api-key not found` create `renpy-tl.toml` next to binary
+- `error: invalid language: ...` means the language must be 2 to 32 characters from `a-z0-9_` and must not contain path traversal.
+- `input folder not found` means you should run from the repo root or pass an absolute path.
+- `file too large: ... > 2097152` means the file exceeds 2 MB and should be split.
+- `tags mismatch` means skipped entries stay empty for manual review. Check the validator output.
+- `opencode-api-key not found` means you should create `renpy-tl.toml` next to the binary.
 
 ## License
 

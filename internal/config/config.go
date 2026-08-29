@@ -12,9 +12,8 @@ const (
 	MaxFileBytes   = 2 * 1024 * 1024
 	MaxStringBytes = 4 * 1024
 
-	OpenCodeBaseURL      = "https://opencode.ai/zen/go/v1"
-	OpenCodeModel        = "muse-spark-1.2-contributor"
-	OpenCodeFallbackModel = "muse-spark-1.2-contributor"
+	OpenCodeBaseURL = "https://opencode.ai/zen/go/v1"
+	OpenCodeModel   = "muse-spark-1.2-contributor"
 )
 
 // compiled patterns, keep strict parity with Python helper.
@@ -33,8 +32,8 @@ var (
 
 // forbidden targets that would overwrite source.
 var ForbiddenTargets = map[string]bool{
-	"piglatin":   true,
-	"pig_latin":  true,
-	"rot13":      true,
-	"rot_13":     true,
+	"piglatin":  true,
+	"pig_latin": true,
+	"rot13":     true,
+	"rot_13":    true,
 }

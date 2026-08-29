@@ -32,34 +32,34 @@ func QuoteUnicode(s string) string {
 
 // StringPair holds a strings block entry.
 type StringPair struct {
-	Kind     string `json:"kind"`
-	File     string `json:"file"`
-	Lineno   int    `json:"lineno"`
-	OldRaw   string `json:"old_raw"`
-	NewRaw   string `json:"new_raw"`
-	Old      string `json:"old"`
-	New      string `json:"new"`
-	IsEmpty  bool   `json:"is_empty"`
+	Kind      string `json:"kind"`
+	File      string `json:"file"`
+	Lineno    int    `json:"lineno"`
+	OldRaw    string `json:"old_raw"`
+	NewRaw    string `json:"new_raw"`
+	Old       string `json:"old"`
+	New       string `json:"new"`
+	IsEmpty   bool   `json:"is_empty"`
 	OldQuoted string `json:"old_quoted"`
-	HasBOM   bool   `json:"has_bom"`
+	HasBOM    bool   `json:"has_bom"`
 }
 
 // DialogueBlock holds a dialogue entry.
 type DialogueBlock struct {
-	Kind       string `json:"kind"`
-	File       string `json:"file"`
-	Lineno     int    `json:"lineno"`
-	Identifier string `json:"identifier"`
-	Hash       string `json:"hash"`
-	Label      string `json:"label"`
-	OldRaw     string `json:"old_raw"`
-	NewRaw     string `json:"new_raw"`
-	Old        string `json:"old"`
-	New        string `json:"new"`
+	Kind       string  `json:"kind"`
+	File       string  `json:"file"`
+	Lineno     int     `json:"lineno"`
+	Identifier string  `json:"identifier"`
+	Hash       string  `json:"hash"`
+	Label      string  `json:"label"`
+	OldRaw     string  `json:"old_raw"`
+	NewRaw     string  `json:"new_raw"`
+	Old        string  `json:"old"`
+	New        string  `json:"new"`
 	Speaker    *string `json:"speaker"`
-	Suffix     string `json:"suffix"`
-	IsEmpty    bool   `json:"is_empty"`
-	HasBOM     bool   `json:"has_bom"`
+	Suffix     string  `json:"suffix"`
+	IsEmpty    bool    `json:"is_empty"`
+	HasBOM     bool    `json:"has_bom"`
 }
 
 // Unit is common interface for blocks.
@@ -72,12 +72,12 @@ type Unit interface {
 	GetHasBOM() bool
 }
 
-func (s StringPair) GetFile() string   { return s.File }
-func (s StringPair) GetLineno() int    { return s.Lineno }
-func (s StringPair) GetOld() string    { return s.Old }
-func (s StringPair) GetNew() string    { return s.New }
-func (s StringPair) GetIsEmpty() bool  { return s.IsEmpty }
-func (s StringPair) GetHasBOM() bool   { return s.HasBOM }
+func (s StringPair) GetFile() string  { return s.File }
+func (s StringPair) GetLineno() int   { return s.Lineno }
+func (s StringPair) GetOld() string   { return s.Old }
+func (s StringPair) GetNew() string   { return s.New }
+func (s StringPair) GetIsEmpty() bool { return s.IsEmpty }
+func (s StringPair) GetHasBOM() bool  { return s.HasBOM }
 
 func (d DialogueBlock) GetFile() string  { return d.File }
 func (d DialogueBlock) GetLineno() int   { return d.Lineno }
@@ -557,23 +557,31 @@ func (p *Parser) ParseDirectory(lang string) ([]interface{}, error) {
 		var la, lb int
 		switch v := out[a].(type) {
 		case StringPair:
-			fa = v.File; la = v.Lineno
+			fa = v.File
+			la = v.Lineno
 		case DialogueBlock:
-			fa = v.File; la = v.Lineno
+			fa = v.File
+			la = v.Lineno
 		case *StringPair:
-			fa = v.File; la = v.Lineno
+			fa = v.File
+			la = v.Lineno
 		case *DialogueBlock:
-			fa = v.File; la = v.Lineno
+			fa = v.File
+			la = v.Lineno
 		}
 		switch v := out[b].(type) {
 		case StringPair:
-			fb = v.File; lb = v.Lineno
+			fb = v.File
+			lb = v.Lineno
 		case DialogueBlock:
-			fb = v.File; lb = v.Lineno
+			fb = v.File
+			lb = v.Lineno
 		case *StringPair:
-			fb = v.File; lb = v.Lineno
+			fb = v.File
+			lb = v.Lineno
 		case *DialogueBlock:
-			fb = v.File; lb = v.Lineno
+			fb = v.File
+			lb = v.Lineno
 		}
 		if fa == fb {
 			return la < lb
@@ -614,23 +622,31 @@ func (p *Parser) ParseInputFolder(inputFolder string) ([]interface{}, error) {
 		var la, lb int
 		switch v := out[a].(type) {
 		case StringPair:
-			fa = v.File; la = v.Lineno
+			fa = v.File
+			la = v.Lineno
 		case DialogueBlock:
-			fa = v.File; la = v.Lineno
+			fa = v.File
+			la = v.Lineno
 		case *StringPair:
-			fa = v.File; la = v.Lineno
+			fa = v.File
+			la = v.Lineno
 		case *DialogueBlock:
-			fa = v.File; la = v.Lineno
+			fa = v.File
+			la = v.Lineno
 		}
 		switch v := out[b].(type) {
 		case StringPair:
-			fb = v.File; lb = v.Lineno
+			fb = v.File
+			lb = v.Lineno
 		case DialogueBlock:
-			fb = v.File; lb = v.Lineno
+			fb = v.File
+			lb = v.Lineno
 		case *StringPair:
-			fb = v.File; lb = v.Lineno
+			fb = v.File
+			lb = v.Lineno
 		case *DialogueBlock:
-			fb = v.File; lb = v.Lineno
+			fb = v.File
+			lb = v.Lineno
 		}
 		if fa == fb {
 			return la < lb

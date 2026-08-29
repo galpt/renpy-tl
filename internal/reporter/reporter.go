@@ -12,11 +12,11 @@ type Reporter struct {
 	Errors       []string
 }
 
-func (r *Reporter) AddChunk(n int) { r.Chunks += n }
-func (r *Reporter) AddBlocks(n int) { r.Blocks += n }
-func (r *Reporter) AddValid(n int) { r.Valid += n }
-func (r *Reporter) AddSkipped(n int) { r.Skipped += n }
-func (r *Reporter) AddFiles(n int) { r.FilesWritten += n }
+func (r *Reporter) AddChunk(n int)      { r.Chunks += n }
+func (r *Reporter) AddBlocks(n int)     { r.Blocks += n }
+func (r *Reporter) AddValid(n int)      { r.Valid += n }
+func (r *Reporter) AddSkipped(n int)    { r.Skipped += n }
+func (r *Reporter) AddFiles(n int)      { r.FilesWritten += n }
 func (r *Reporter) AddError(msg string) { r.Errors = append(r.Errors, msg) }
 
 func (r *Reporter) Summary() string {
