@@ -12,7 +12,7 @@ type Validator struct{}
 
 // ValidateBlock checks invariants for a single unit.
 func (v *Validator) ValidateBlock(original interface{}, proposed string) (bool, string) {
-	// invariant 3: only empty may be filled
+	// invariant 3. only empty may be filled.
 	var isEmpty bool
 	var old string
 	switch o := original.(type) {
@@ -38,25 +38,25 @@ func (v *Validator) ValidateBlock(original interface{}, proposed string) (bool, 
 	if proposed == "" {
 		return false, "proposed empty"
 	}
-	// invariant 5: escaping valid
+	// invariant 5. escaping valid.
 	if !parser.EscapeValid(proposed) {
 		return false, "escaping invalid"
 	}
 	if !parser.EscapeValid(old) {
 		return false, "old escaping invalid"
 	}
-	// invariant 6: tags preserved exact multiset
+	// invariant 6. tags preserved exact multiset.
 	oldTags := parser.ExtractTags(old)
 	newTags := parser.ExtractTags(proposed)
 	if !equalTagMap(oldTags, newTags) {
 		return false, "tags mismatch"
 	}
-	// invariant 8: newline count preserved
+	// invariant 8. newline count preserved.
 	if strings.Count(old, "\n") != strings.Count(proposed, "\n") {
 		return false, "newline count mismatch"
 	}
-	// invariant 9: parseability already via EscapeValid
-	// invariant 1,2,4,7 are structural and handled by caller mapping
+	// invariant 9. parseability already via EscapeValid.
+	// invariant 1 2 4 7 are structural and handled by caller mapping.
 	return true, "ok"
 }
 
@@ -80,11 +80,11 @@ func (v *Validator) ValidateBatch(units []interface{}, proposed map[string]strin
 		var key string
 		switch o := u.(type) {
 		case parser.StringPair:
-			key = o.File + "\x1f" + o.Old
+			key = parser.FileBase(o.File) + "\x1f" + o.Old
 		case parser.DialogueBlock:
 			key = o.Hash + "\x1f" + o.Old
 		case *parser.StringPair:
-			key = o.File + "\x1f" + o.Old
+			key = parser.FileBase(o.File) + "\x1f" + o.Old
 		case *parser.DialogueBlock:
 			key = o.Hash + "\x1f" + o.Old
 		}

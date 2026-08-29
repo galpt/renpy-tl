@@ -8,18 +8,18 @@ import (
 )
 
 // LoadTOML reads renpy-tl.toml next to binary or cwd.
-// Keys exactly: ai-model and opencode-api-key, no ENV fallback.
+// Keys exactly. ai-model and opencode-api-key. no ENV fallback.
 func LoadTOML() (Config, string, error) {
 	candidates := []string{}
-	// binary dir
+	// binary dir.
 	if exe, err := os.Executable(); err == nil {
 		candidates = append(candidates, filepath.Join(filepath.Dir(exe), "renpy-tl.toml"))
 	}
-	// cwd
+	// cwd.
 	if wd, err := os.Getwd(); err == nil {
 		candidates = append(candidates, filepath.Join(wd, "renpy-tl.toml"))
 	}
-	// also try relative to binary's real path
+	// also try relative to binary's real path.
 	for _, p := range candidates {
 		if _, err := os.Stat(p); err == nil {
 			cfg, err := parseTOML(p)
@@ -42,14 +42,14 @@ func parseTOML(path string) (Config, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// split on = (first)
+		// split on = (first).
 		idx := strings.Index(line, "=")
 		if idx < 0 {
 			continue
 		}
 		key := strings.TrimSpace(line[:idx])
 		val := strings.TrimSpace(line[idx+1:])
-		// strip quotes
+		// strip quotes.
 		val = strings.Trim(val, `"`)
 		val = strings.Trim(val, `'`)
 		switch key {

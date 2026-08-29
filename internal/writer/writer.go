@@ -28,7 +28,7 @@ func checkLang(lang, inputFolder, outputFolder string) (string, error) {
 	if config.ForbiddenTargets[lang] {
 		return "", fmt.Errorf("forbidden target: %s (would overwrite source)", lang)
 	}
-	// also guard output path
+	// also guard output path.
 	outAbs, err := filepath.Abs(outputFolder)
 	if err != nil {
 		return "", err
@@ -37,7 +37,7 @@ func checkLang(lang, inputFolder, outputFolder string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// ensure output not inside piglatin-like? just forbid traversal via lang
+	// ensure output not inside piglatin like. just forbid traversal via lang.
 	_ = inAbs
 	_ = outAbs
 	return outAbs, nil
@@ -71,7 +71,7 @@ func readExisting(path string) (string, bool, os.FileMode, error) {
 		raw = raw[3:]
 	}
 	text := string(raw)
-	// normalize line endings to \n for consistent patching
+	// normalize line endings to \n for consistent patching.
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
 	fi, err := os.Stat(path)
@@ -97,7 +97,7 @@ func atomicWrite(dest string, content string, hasBOM bool, mode os.FileMode) err
 	if isSymlink(parent) {
 		return fmt.Errorf("symlink not allowed: %s", parent)
 	}
-	// backup
+	// backup.
 	if _, err := os.Stat(dest); err == nil {
 		ts := fmt.Sprintf("%d", time.Now().Unix())
 		bak := dest + ".bak." + ts
@@ -105,13 +105,13 @@ func atomicWrite(dest string, content string, hasBOM bool, mode os.FileMode) err
 			return err
 		}
 	}
-	// temp in same dir
+	// temp in same dir.
 	tmp, err := os.CreateTemp(parent, ".tmp.")
 	if err != nil {
 		return err
 	}
 	tmpName := tmp.Name()
-	// ensure cleanup on failure
+	// ensure cleanup on failure.
 	cleanup := func() {
 		tmp.Close()
 		os.Remove(tmpName)
@@ -135,11 +135,11 @@ func atomicWrite(dest string, content string, hasBOM bool, mode os.FileMode) err
 		return err
 	}
 	if err := os.Chmod(tmpName, mode); err != nil {
-		// non-fatal
+		// non-fatal.
 	}
-	// replace
+	// replace.
 	if err := os.Rename(tmpName, dest); err != nil {
-		// EXDEV fallback
+		// EXDEV fallback.
 		if isCrossDevice(err) {
 			if err2 := copyFile(tmpName, dest); err2 != nil {
 				os.Remove(tmpName)
@@ -151,9 +151,9 @@ func atomicWrite(dest string, content string, hasBOM bool, mode os.FileMode) err
 			return err
 		}
 	}
-	// fsync directory
+	// fsync directory.
 	if err := fsyncDir(parent); err != nil {
-		// advisory
+		// advisory.
 	}
 	return nil
 }
@@ -183,7 +183,7 @@ func copyFile(src, dst string) error {
 	if err := out.Sync(); err != nil {
 		return err
 	}
-	// copy perms
+	// copy perms.
 	if fi, err := os.Stat(src); err == nil {
 		os.Chmod(dst, fi.Mode().Perm())
 	}
@@ -191,13 +191,13 @@ func copyFile(src, dst string) error {
 }
 
 func isCrossDevice(err error) bool {
-	// string check for EXDEV
+	// string check for EXDEV.
 	return strings.Contains(err.Error(), "cross-device") || strings.Contains(err.Error(), "invalid cross-device")
 }
 
 func fsyncDir(dir string) error {
-	// O_DIRECTORY guard for Windows
-	// try O_DIRECTORY if available, else O_RDONLY
+	// O_DIRECTORY guard for Windows.
+	// try O_DIRECTORY if available, else O_RDONLY.
 	f, err := os.Open(dir)
 	if err != nil {
 		return err
@@ -212,15 +212,12 @@ func applyTranslations(dest string, units []interface{}, valid map[string]string
 	if err != nil {
 		return "", false, 0, err
 	}
-	// if not exists, try input file as template
+	// if not exists, try input file as template.
 	if text == "" {
-		// try to find corresponding input file
-		// units belong to inputFolder; map dest to input
-		// dest is OutputFolder + rel; input is InputFolder + rel
-		rel, err := filepath.Rel(filepath.Clean(dest), filepath.Clean(dest))
-		_ = rel
-		_ = err
-		// fallback: use first unit's file to locate template
+		// try to find corresponding input file.
+		// units belong to inputFolder. map dest to input.
+		// dest is OutputFolder plus rel. input is InputFolder plus rel.
+		// fallback. use first unit file to locate template.
 		if len(units) > 0 {
 			var srcFile string
 			switch v := units[0].(type) {
@@ -252,20 +249,20 @@ func applyTranslations(dest string, units []interface{}, valid map[string]string
 			return "", hasBOM, mode, nil
 		}
 	}
-	// normalize line endings for processing but preserve original style on write?
-	// we keep \n join; writer will emit \n (handles \r\n via parser normalize)
+	// normalize line endings for processing but preserve original style on write.
+	// we keep newline join. writer will emit newline. handles line ending via parser normalize.
 	lines := strings.Split(text, "\n")
-	// handle BOM already stripped, lines include content without BOM
+	// handle BOM already stripped, lines include content without BOM.
 	newLines := make([]string, len(lines))
 	copy(newLines, lines)
 
-	// build lookup for valid
+	// build lookup for valid.
 	for _, u := range units {
 		var key string
 		var old string
 		switch v := u.(type) {
 		case parser.StringPair:
-			key = v.File + "\x1f" + v.Old
+			key = parser.FileBase(v.File) + "\x1f" + v.Old
 			_ = old
 			old = v.Old
 		case parser.DialogueBlock:
@@ -310,7 +307,7 @@ func applyTranslations(dest string, units []interface{}, valid map[string]string
 }
 
 func findDialogueLine(lines []string, u parser.DialogueBlock) int {
-	// search near header lineno
+	// search near header lineno.
 	start := u.Lineno - 1
 	if start < 0 {
 		start = 0
@@ -318,7 +315,7 @@ func findDialogueLine(lines []string, u parser.DialogueBlock) int {
 	if start >= len(lines) {
 		start = 0
 	}
-	// look ahead up to 8 lines for exact newRaw match
+	// look ahead up to 8 lines for exact newRaw match.
 	for j := start; j < len(lines) && j < start+8; j++ {
 		if strings.TrimSpace(lines[j]) == strings.TrimSpace(u.NewRaw) {
 			return j
@@ -337,7 +334,7 @@ func findDialogueLine(lines []string, u parser.DialogueBlock) int {
 			}
 		}
 	}
-	// fallback scan whole file for first empty after header
+	// fallback scan whole file for first empty after header.
 	for j := start; j < len(lines); j++ {
 		if config.TranslateRE.MatchString(strings.TrimSpace(lines[j])) && j != start {
 			break
@@ -363,33 +360,33 @@ func findStringLine(lines []string, u parser.StringPair) int {
 		}
 		if strings.HasPrefix(strings.TrimLeft(lines[j], " \t"), "new ") {
 			if strings.TrimSpace(lines[j]) == "new \"\"" || strings.TrimSpace(lines[j]) == "new ''" {
-				// verify old nearby
-				// look back for old line
+				// verify old nearby.
+				// look back for old line.
 				for k := j - 1; k >= 0 && k > j-5; k-- {
 					if strings.Contains(lines[k], u.OldQuoted) || strings.Contains(lines[k], parser.QuoteUnicode(u.Old)) {
 						return j
 					}
 				}
-				// if not found but empty, treat as candidate for first empty
-				// only return if we are at expected offset
-				// we need to handle order: assume pairs in file order correspond to empties
-				// For simplicity, if no exact match, return first new "" after start
-				// But to avoid mis-align, check that old line before is old
+				// if not found but empty, treat as candidate for first empty.
+				// only return if we are at expected offset.
+				// we need to handle order. assume pairs in file order correspond to empties.
+				// For simplicity, if no exact match return first new empty after start.
+				// But to avoid misalignment check that old line before is old.
 				if j == start+2 || strings.HasPrefix(strings.TrimLeft(lines[j-1], " \t"), "old ") {
 					return j
 				}
 			}
 		}
 	}
-	// fallback: collect empty new positions
+	// fallback. collect empty new positions.
 	var empties []int
 	for idx, l := range lines {
 		if strings.TrimSpace(l) == "new \"\"" || strings.TrimSpace(l) == "new ''" {
 			empties = append(empties, idx)
 		}
 	}
-	// heuristic: position by order of string units? Not reliable without file grouping
-	// return first not yet patched
+	// heuristic. position by order of string units. not reliable without file grouping.
+	// return first not yet patched.
 	for _, idx := range empties {
 		if idx >= start {
 			return idx
@@ -398,9 +395,9 @@ func findStringLine(lines []string, u parser.StringPair) int {
 	return -1
 }
 
-// Write does two-phase batch: prepare temps, fsync, then rename.
+// Write does two phase batch. prepare temps. fsync. then rename.
 func (w *Writer) Write(allUnits []interface{}, valid map[string]string) ([]string, error) {
-	// group by file (output path)
+	// group by file (output path).
 	type fileGroup struct {
 		outputPath string
 		inputPath  string
@@ -413,7 +410,7 @@ func (w *Writer) Write(allUnits []interface{}, valid map[string]string) ([]strin
 		switch v := u.(type) {
 		case parser.StringPair:
 			file = v.File
-			key = v.File + "\x1f" + v.Old
+			key = parser.FileBase(v.File) + "\x1f" + v.Old
 		case parser.DialogueBlock:
 			file = v.File
 			key = v.Hash + "\x1f" + v.Old
@@ -423,24 +420,24 @@ func (w *Writer) Write(allUnits []interface{}, valid map[string]string) ([]strin
 		}
 		rel, err := filepath.Rel(w.InputFolder, file)
 		if err != nil {
-			// fallback to base
+			// fallback to base.
 			rel = filepath.Base(file)
 		}
-		// handle both separators
+		// handle both separators.
 		rel = filepath.FromSlash(filepath.ToSlash(rel))
 		outPath := filepath.Join(w.OutputFolder, rel)
-		// also handle \ separator already via FromSlash
+		// also handle \ separator already via FromSlash.
 		if _, ok := byFile[outPath]; !ok {
 			byFile[outPath] = &fileGroup{outputPath: outPath, inputPath: file}
 		}
 		byFile[outPath].units = append(byFile[outPath].units, u)
 	}
-	// deterministic order
+	// deterministic order.
 	keys := make([]string, 0, len(byFile))
 	for k := range byFile {
 		keys = append(keys, k)
 	}
-	// sort keys
+	// sort keys.
 	for i := 0; i < len(keys); i++ {
 		for j := i + 1; j < len(keys); j++ {
 			if keys[j] < keys[i] {
@@ -455,7 +452,7 @@ func (w *Writer) Write(allUnits []interface{}, valid map[string]string) ([]strin
 	}
 	var pendings []pending
 	var written []string
-	// phase1: create temps
+	// phase1. create temps.
 	for _, k := range keys {
 		fg := byFile[k]
 		dest := fg.outputPath
@@ -466,7 +463,7 @@ func (w *Writer) Write(allUnits []interface{}, valid map[string]string) ([]strin
 		if err := os.MkdirAll(parent, 0o755); err != nil {
 			return written, err
 		}
-		// backup if exists
+		// backup if exists.
 		if _, err := os.Stat(dest); err == nil {
 			ts := fmt.Sprintf("%d", time.Now().Unix())
 			bak := dest + ".bak." + ts
@@ -476,24 +473,24 @@ func (w *Writer) Write(allUnits []interface{}, valid map[string]string) ([]strin
 		if err != nil {
 			return written, err
 		}
-		// if dest not exists but input exists, applyTranslations may have used input template
-		// if still empty, read input directly and patch
+		// if dest not exists but input exists, applyTranslations may have used input template.
+		// if still empty, read input directly and patch.
 		if newContent == "" {
-			// try reading input
+			// try reading input.
 			if txt, hb, m, e := readExisting(fg.inputPath); e == nil && txt != "" {
 				newContent, hasBOM, mode, _ = applyTranslations(fg.inputPath, fg.units, valid)
-				// but we need to write to dest
+				// but we need to write to dest.
 				_ = hb
 				_ = m
 				_ = txt
-				// if still empty, skip
+				// if still empty, skip.
 				if newContent == "" {
 					continue
 				}
-				// re-apply against dest template if dest empty
-				// use input content as base
+				// re-apply against dest template if dest empty.
+				// use input content as base.
 				if _, err := os.Stat(dest); os.IsNotExist(err) {
-					// create dest content from input
+					// create dest content from input.
 					raw, _ := os.ReadFile(fg.inputPath)
 					hb2 := bytes.HasPrefix(raw, []byte{0xEF, 0xBB, 0xBF})
 					if hb2 {
@@ -509,15 +506,15 @@ func (w *Writer) Write(allUnits []interface{}, valid map[string]string) ([]strin
 				}
 			}
 		}
-		// skip if nothing to write (no valid)
+		// skip if nothing to write (no valid).
 		if newContent == "" {
 			continue
 		}
-		// check if idempotent: compare existing content to newContent
+		// check if idempotent. compare existing content to newContent.
 		if existing, _, _, e := readExisting(dest); e == nil && existing == newContent && existing != "" {
 			continue
 		}
-		// create temp
+		// create temp.
 		tmp, err := os.CreateTemp(parent, ".tmp.")
 		if err != nil {
 			return written, err
@@ -541,11 +538,11 @@ func (w *Writer) Write(allUnits []interface{}, valid map[string]string) ([]strin
 		}
 		tmp.Close()
 		if err := os.Chmod(tmpName, mode); err != nil {
-			// ignore
+			// ignore.
 		}
 		pendings = append(pendings, pending{tmp: tmpName, dest: dest, parent: parent})
 	}
-	// phase2: rename
+	// phase2. rename.
 	for _, p := range pendings {
 		if err := os.Rename(p.tmp, p.dest); err != nil {
 			if isCrossDevice(err) {
@@ -562,7 +559,7 @@ func (w *Writer) Write(allUnits []interface{}, valid map[string]string) ([]strin
 		_ = fsyncDir(p.parent)
 		written = append(written, p.dest)
 	}
-	// cleanup any leftover temps
+	// cleanup any leftover temps.
 	for _, p := range pendings {
 		if _, err := os.Stat(p.tmp); err == nil {
 			os.Remove(p.tmp)
@@ -580,7 +577,7 @@ func patchFromText(text string, units []interface{}, valid map[string]string) st
 		var key string
 		switch v := u.(type) {
 		case parser.StringPair:
-			key = v.File + "\x1f" + v.Old
+			key = parser.FileBase(v.File) + "\x1f" + v.Old
 		case parser.DialogueBlock:
 			key = v.Hash + "\x1f" + v.Old
 		}

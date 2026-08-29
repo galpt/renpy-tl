@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/galpt/renpy-tl/internal/adapter"
 	"github.com/galpt/renpy-tl/internal/chunker"
@@ -29,7 +30,7 @@ func main() {
 	flag.StringVar(&translateTo, "translate-to", "", "target language")
 	flag.BoolVar(&dryRun, "dry-run", false, "do not write files")
 	flag.BoolVar(&mock, "mock", false, "use mock translations")
-	// keep legacy aliases for compatibility
+	// keep legacy aliases for compatibility.
 	var langAlias string
 	flag.StringVar(&langAlias, "lang", "", "legacy alias for translate-to")
 	var tlRootAlias string
@@ -54,10 +55,10 @@ func main() {
 		os.Exit(2)
 	}
 
-	// normalize language to lower
+	// normalize language to lower.
 	translateTo = strings.ToLower(strings.TrimSpace(translateTo))
 
-	// fail fast on invalid language
+	// fail fast on invalid language.
 	if !config.LangRE.MatchString(translateTo) {
 		fmt.Fprintf(os.Stderr, "error: invalid language: %s\n", translateTo)
 		os.Exit(2)
@@ -71,18 +72,18 @@ func main() {
 		os.Exit(2)
 	}
 
-	// check input folder
+	// check input folder.
 	if _, err := os.Stat(inputFolder); err != nil {
 		fmt.Fprintf(os.Stderr, "input folder not found: %s\n", inputFolder)
 		os.Exit(2)
 	}
-	// ensure output folder exists
+	// ensure output folder exists.
 	if err := os.MkdirAll(outputFolder, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "cannot create output folder: %v\n", err)
 		os.Exit(2)
 	}
 
-	// load TOML if not mock and not dry-run without key? keep strict: only TOML, no ENV
+	// load TOML if not mock and not dry run without key. keep strict. only TOML. no ENV.
 	var cfg adapter.Config
 	var cfgPath string
 	if !mock {
@@ -90,7 +91,7 @@ func main() {
 		cfg = c
 		cfgPath = p
 		if !dryRun && cfg.APIKey == "" {
-			// require key for real run
+			// require key for real run.
 			fmt.Fprintf(os.Stderr, "error: opencode-api-key not found in %s\n", cfgPath)
 			if cfgPath == "" {
 				fmt.Fprintln(os.Stderr, "hint: create renpy-tl.toml next to binary")
@@ -102,16 +103,16 @@ func main() {
 	rep := &reporter.Reporter{}
 	p := parser.New(inputFolder)
 
-	// find empty units in input folder
+	// find empty units in input folder.
 	empty, err := p.FindEmptyInFolder(inputFolder)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
 		os.Exit(2)
 	}
 
-	// demo fallback like python helper: if no empty, use source blocks as demo when mock+dry-run
+	// demo fallback like python helper. if no empty use source blocks as demo when mock and dry run.
 	if len(empty) == 0 {
-		// check if input folder has any rpy at all
+		// check if input folder has any rpy at all.
 		all, _ := p.ParseInputFolder(inputFolder)
 		hasFiles := false
 		_ = filepath.Walk(inputFolder, func(path string, info os.FileInfo, err error) error {
@@ -121,15 +122,15 @@ func main() {
 			return nil
 		})
 		if hasFiles && len(all) > 0 {
-			// no empty, nothing to do
+			// no empty, nothing to do.
 		} else {
-			// try mock demo using first 10 from any files if exists
+			// try mock demo using first 10 from any files if exists.
 			if mock || dryRun {
 				limit := 10
 				if len(all) > limit {
 					all = all[:limit]
 				}
-				// mark as empty for demo
+				// mark as empty for demo.
 				for i := range all {
 					switch v := all[i].(type) {
 					case parser.StringPair:
@@ -142,7 +143,7 @@ func main() {
 						all[i] = v
 					}
 				}
-				empty = all[:min(len(all), 10)]
+				empty = all[:minInt(len(all), 10)]
 				if len(empty) > 0 {
 					fmt.Fprintf(os.Stderr, "no empty found for %s, using %d source blocks as demo\n", translateTo, len(empty))
 				}
@@ -184,7 +185,7 @@ func main() {
 		if mock {
 			raw = adapter.MockTranslate(ck.Units, "TR: ")
 		} else {
-			// if dry-run and no key, also mock to show validation
+			// if dry-run and no key, also mock to show validation.
 			if ad.APIKey == "" {
 				raw = adapter.MockTranslate(ck.Units, "TR: ")
 			} else {
@@ -194,9 +195,9 @@ func main() {
 					fmt.Fprintln(os.Stderr, "Please check renpy-tl.toml and try again")
 					os.Exit(1)
 				}
-				// map to validator key style
-				// ad.TranslateChunk returns keyFor -> value, validator expects file/hash\x1fold
-				// convert
+				// map to validator key style.
+				// ad TranslateChunk returns keyFor to value. validator expects file hash old.
+				// convert.
 				tmp := make(map[string]string)
 				for _, u := range ck.Units {
 					k := ""
@@ -204,7 +205,7 @@ func main() {
 					switch v := u.(type) {
 					case parser.StringPair:
 						k = parser.FileBase(v.File) + "\x1f" + v.Old
-						vk = v.File + "\x1f" + v.Old
+						vk = parser.FileBase(v.File) + "\x1f" + v.Old
 					case parser.DialogueBlock:
 						k = v.Hash + "\x1f" + v.Old
 						vk = v.Hash + "\x1f" + v.Old
@@ -221,6 +222,10 @@ func main() {
 		rep.AddSkipped(len(ck.Units) - len(valid))
 		for k, v := range valid {
 			totalValid[k] = v
+		}
+		// pace requests to avoid burst rate limits, one request per second.
+		if !mock && ad.APIKey != "" && len(chunks) > 1 {
+			time.Sleep(1 * time.Second)
 		}
 	}
 
@@ -253,7 +258,7 @@ func main() {
 	rep.Print()
 }
 
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}

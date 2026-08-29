@@ -58,15 +58,28 @@ jobs:
           if [ -z "$TAG" ]; then TAG="dev"; fi
           mkdir -p dist
           go build -ldflags "-s -w -X main.Version=${TAG}" -o "dist/renpy-tl-${{ matrix.name }}${{ matrix.ext }}" ./cmd/renpy-tl
+      - name: Ensure zip
+        run: |
+          if ! command -v zip >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y zip unzip
+          fi
+          # fallback via python zipfile if zip still missing
+          if ! command -v zip >/dev/null 2>&1; then
+            echo "zip not found. will use python fallback"
+          fi
       - name: Archive
         run: |
           TS=$(date -u +"%Y%m%d-%H%M%S")
           cd dist
           cp ../renpy-tl.toml.example renpy-tl.toml
-          zip "renpy-tl-${{ matrix.name }}-${TS}.zip" "renpy-tl-${{ matrix.name }}${{ matrix.ext }}" renpy-tl.toml
+          if command -v zip >/dev/null 2>&1; then
+            zip "renpy-tl-${{ matrix.name }}-${TS}.zip" "renpy-tl-${{ matrix.name }}${{ matrix.ext }}" renpy-tl.toml
+          else
+            python3 -m zipfile -c "renpy-tl-${{ matrix.name }}-${TS}.zip" "renpy-tl-${{ matrix.name }}${{ matrix.ext }}" renpy-tl.toml
+          fi
           rm renpy-tl.toml
           ls -lh "renpy-tl-${{ matrix.name }}-${TS}.zip"
-          unzip -l "renpy-tl-${{ matrix.name }}-${TS}.zip"
+          if command -v unzip >/dev/null 2>&1; then unzip -l "renpy-tl-${{ matrix.name }}-${TS}.zip"; else python3 -m zipfile -l "renpy-tl-${{ matrix.name }}-${TS}.zip"; fi
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

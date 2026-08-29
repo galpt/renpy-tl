@@ -5,13 +5,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/galpt/renpy-tl/internal/config"
 	"github.com/galpt/renpy-tl/internal/parser"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // Config holds TOML values.
 type Config struct {
@@ -96,6 +102,7 @@ func getOld(u interface{}) string {
 }
 
 // TranslateChunk calls endpoint, handles both chat/completions and responses.
+// It retries transient 429 and 5xx with exponential backoff and respects Retry-After.
 func (a *Adapter) TranslateChunk(units []interface{}) (map[string]string, error) {
 	if len(units) == 0 {
 		return map[string]string{}, nil
@@ -104,7 +111,7 @@ func (a *Adapter) TranslateChunk(units []interface{}) (map[string]string, error)
 		return map[string]string{}, nil
 	}
 	msgs := buildMessages(units)
-	// decide endpoint: muse-spark uses /responses, others /chat/completions
+	// decide endpoint. muse spark uses responses. others use chat completions.
 	useResponses := strings.Contains(a.Model, "muse-spark")
 	var url string
 	var payload interface{}
@@ -138,70 +145,76 @@ func (a *Adapter) TranslateChunk(units []interface{}) (map[string]string, error)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+a.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := a.Client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("could not reach the translation service. Please check your internet connection and try again")
-	}
-	defer resp.Body.Close()
-	var body bytes.Buffer
-	_, _ = body.ReadFrom(resp.Body)
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// The model may no longer be available. Show a clear message and exit.
-		// Do not expose the API key.
-		msg := body.String()
-		if resp.StatusCode == 404 || resp.StatusCode == 400 {
-			if strings.Contains(strings.ToLower(msg), "model") {
-				return nil, fmt.Errorf("the model %q is not available. Please open renpy-tl.toml and set ai-model to a valid model, for example \"muse-spark-1.2-contributor\"", a.Model)
+	// retry loop for transient rate limits.
+	const maxAttempts = 5
+	const initialDelay = 2 * time.Second
+	const maxDelayNoHeader = 30 * time.Second
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		req, err := http.NewRequest("POST", url, bytes.NewReader(data))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+a.APIKey)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := a.Client.Do(req)
+		if err != nil {
+			if attempt == maxAttempts {
+				return nil, fmt.Errorf("could not reach the translation service. Please check your internet connection and try again")
 			}
+			// transient network error, back off and retry.
+			backoff := initialDelay << uint(attempt-1)
+			if backoff > maxDelayNoHeader {
+				backoff = maxDelayNoHeader
+			}
+			// add jitter.
+			backoff += time.Duration(rand.Int63n(int64(backoff / 4)))
+			time.Sleep(backoff)
+			continue
 		}
-		if resp.StatusCode == 401 || resp.StatusCode == 403 {
-			return nil, fmt.Errorf("the API key was rejected. Please check opencode-api-key in renpy-tl.toml")
-		}
-		return nil, fmt.Errorf("the translation service returned an error (%d). Please try again later", resp.StatusCode)
-	}
-	var obj map[string]interface{}
-	if err := json.Unmarshal(body.Bytes(), &obj); err != nil {
-		return map[string]string{}, nil
-	}
-	// extract content
-	var content string
-	if v, ok := obj["choices"]; ok {
-		if arr, ok := v.([]interface{}); ok && len(arr) > 0 {
-			if m, ok := arr[0].(map[string]interface{}); ok {
-				if msg, ok := m["message"].(map[string]interface{}); ok {
-					if c, ok := msg["content"].(string); ok {
-						content = c
+		var body bytes.Buffer
+		_, _ = body.ReadFrom(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			// success, parse below.
+			var obj map[string]interface{}
+			if err := json.Unmarshal(body.Bytes(), &obj); err != nil {
+				return map[string]string{}, nil
+			}
+			// extract content.
+			var content string
+			if v, ok := obj["choices"]; ok {
+				if arr, ok := v.([]interface{}); ok && len(arr) > 0 {
+					if m, ok := arr[0].(map[string]interface{}); ok {
+						if msg, ok := m["message"].(map[string]interface{}); ok {
+							if c, ok := msg["content"].(string); ok {
+								content = c
+							}
+						}
 					}
 				}
 			}
-		}
-	}
-	if content == "" {
-		if v, ok := obj["output_text"].(string); ok {
-			content = v
-		}
-	}
-	if content == "" {
-		if v, ok := obj["output"]; ok {
-			if arr, ok := v.([]interface{}); ok {
-				for _, item := range arr {
-					if im, ok := item.(map[string]interface{}); ok {
-						if cc, ok := im["content"].([]interface{}); ok {
-							for _, c := range cc {
-								if cm, ok := c.(map[string]interface{}); ok {
-									if t, ok := cm["text"].(string); ok {
-										content = t
-										break
-									}
-									if t, ok := cm["type"].(string); ok && t == "output_text" {
-										if tx, ok := cm["text"].(string); ok {
-											content = tx
+			if content == "" {
+				if v, ok := obj["output_text"].(string); ok {
+					content = v
+				}
+			}
+			if content == "" {
+				if v, ok := obj["output"]; ok {
+					if arr, ok := v.([]interface{}); ok {
+						for _, item := range arr {
+							if im, ok := item.(map[string]interface{}); ok {
+								if cc, ok := im["content"].([]interface{}); ok {
+									for _, c := range cc {
+										if cm, ok := c.(map[string]interface{}); ok {
+											if t, ok := cm["text"].(string); ok {
+												content = t
+												break
+											}
+											if t, ok := cm["type"].(string); ok && t == "output_text" {
+												if tx, ok := cm["text"].(string); ok {
+													content = tx
+												}
+											}
 										}
 									}
 								}
@@ -210,43 +223,86 @@ func (a *Adapter) TranslateChunk(units []interface{}) (map[string]string, error)
 					}
 				}
 			}
+			if content == "" {
+				content = body.String()
+			}
+			var out map[string]string
+			if err := json.Unmarshal([]byte(content), &out); err != nil {
+				var gen map[string]interface{}
+				if err2 := json.Unmarshal([]byte(content), &gen); err2 != nil {
+					return map[string]string{}, nil
+				}
+				out = make(map[string]string)
+				for k, v := range gen {
+					if s, ok := v.(string); ok {
+						out[k] = s
+					}
+				}
+			}
+			if out == nil {
+				out = map[string]string{}
+			}
+			filtered := make(map[string]string)
+			for k, v := range out {
+				filtered[k] = v
+			}
+			return filtered, nil
 		}
-	}
-	if content == "" {
-		// fallback: body may be already json map
-		content = body.String()
-	}
-	// parse content as json map
-	var out map[string]string
-	if err := json.Unmarshal([]byte(content), &out); err != nil {
-		// try generic then filter strings
-		var gen map[string]interface{}
-		if err2 := json.Unmarshal([]byte(content), &gen); err2 != nil {
-			return map[string]string{}, nil
+		// error status, decide if retryable.
+		msg := body.String()
+		lower := strings.ToLower(msg)
+		// hard quota errors should not be retried for long periods.
+		if strings.Contains(lower, "go third") || strings.Contains(lower, "go limit") || strings.Contains(lower, "usage limit") || strings.Contains(lower, "insufficient_quota") || strings.Contains(lower, "freeusagelimiterror") {
+			return nil, fmt.Errorf("the translation limit was reached. The service will reset in a while. Please try again later or check https://opencode.ai/auth")
 		}
-		out = make(map[string]string)
-		for k, v := range gen {
-			if s, ok := v.(string); ok {
-				out[k] = s
+		if resp.StatusCode == 404 || resp.StatusCode == 400 {
+			if strings.Contains(lower, "model") {
+				return nil, fmt.Errorf("the model %q is not available. Please open renpy-tl.toml and set ai-model to a valid model, for example \"muse-spark-1.2-contributor\"", a.Model)
 			}
 		}
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			return nil, fmt.Errorf("the API key was rejected. Please check opencode-api-key in renpy-tl.toml")
+		}
+		// retry only on 429 and 5xx.
+		if resp.StatusCode != 429 && resp.StatusCode < 500 {
+			return nil, fmt.Errorf("the translation service returned an error (%d). Please try again later", resp.StatusCode)
+		}
+		if attempt == maxAttempts {
+			return nil, fmt.Errorf("the translation service is busy (rate limited). Please try again in a minute")
+		}
+		// parse Retry-After.
+		var delay time.Duration
+		if s := resp.Header.Get("Retry-After"); s != "" {
+			if secs, err := strconv.Atoi(s); err == nil && secs > 0 {
+				delay = time.Duration(secs) * time.Second
+			} else if secsF, err := strconv.ParseFloat(s, 64); err == nil && secsF > 0 {
+				delay = time.Duration(secsF * float64(time.Second))
+			}
+		}
+		if delay == 0 {
+			if s := resp.Header.Get("retry-after-ms"); s != "" {
+				if ms, err := strconv.Atoi(s); err == nil && ms > 0 {
+					delay = time.Duration(ms) * time.Millisecond
+				}
+			}
+		}
+		if delay == 0 || delay > maxDelayNoHeader {
+			// exponential backoff.
+			delay = initialDelay << uint(attempt-1)
+			if delay > maxDelayNoHeader {
+				delay = maxDelayNoHeader
+			}
+			delay += time.Duration(rand.Int63n(int64(delay / 4)))
+		}
+		time.Sleep(delay)
 	}
-	if out == nil {
-		out = map[string]string{}
-	}
-	// ensure strict: only string values
-	filtered := make(map[string]string)
-	for k, v := range out {
-		filtered[k] = v
-	}
-	_ = fmt.Sprintf // keep import if needed
-	return filtered, nil
+	return nil, fmt.Errorf("the translation service is busy. Please try again later")
 }
 
-// Translate maps chunk units to proposed map with tuple keys (hash\x1fold or file\x1fold)
+// Translate maps chunk units to proposed map with tuple keys (hash\x1fold or file\x1fold).
 func (a *Adapter) Translate(units []interface{}) map[string]string {
 	raw, _ := a.TranslateChunk(units)
-	// map to validator key style
+	// map to validator key style.
 	mapped := make(map[string]string)
 	for _, u := range units {
 		k := keyFor(u)
@@ -254,11 +310,11 @@ func (a *Adapter) Translate(units []interface{}) map[string]string {
 			var vk string
 			switch o := u.(type) {
 			case parser.StringPair:
-				vk = o.File + "\x1f" + o.Old
+				vk = parser.FileBase(o.File) + "\x1f" + o.Old
 			case parser.DialogueBlock:
 				vk = o.Hash + "\x1f" + o.Old
 			case *parser.StringPair:
-				vk = o.File + "\x1f" + o.Old
+				vk = parser.FileBase(o.File) + "\x1f" + o.Old
 			case *parser.DialogueBlock:
 				vk = o.Hash + "\x1f" + o.Old
 			}
@@ -279,13 +335,13 @@ func MockTranslate(units []interface{}, prefix string) map[string]string {
 		var old string
 		switch o := u.(type) {
 		case parser.StringPair:
-			k = o.File + "\x1f" + o.Old
+			k = parser.FileBase(o.File) + "\x1f" + o.Old
 			old = o.Old
 		case parser.DialogueBlock:
 			k = o.Hash + "\x1f" + o.Old
 			old = o.Old
 		case *parser.StringPair:
-			k = o.File + "\x1f" + o.Old
+			k = parser.FileBase(o.File) + "\x1f" + o.Old
 			old = o.Old
 		case *parser.DialogueBlock:
 			k = o.Hash + "\x1f" + o.Old

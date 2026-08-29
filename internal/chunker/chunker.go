@@ -92,7 +92,7 @@ func (c *Chunker) Chunk(units []interface{}) []Chunk {
 		}
 		byFile[f] = append(byFile[f], u)
 	}
-	// deterministic file order
+	// deterministic file order.
 	files := make([]string, 0, len(byFile))
 	for k := range byFile {
 		files = append(files, k)
@@ -195,7 +195,7 @@ func (c *Chunker) Chunk(units []interface{}) []Chunk {
 }
 
 func itoa(i int) string {
-	// small helper no fmt
+	// small helper no fmt.
 	if i == 0 {
 		return "0"
 	}

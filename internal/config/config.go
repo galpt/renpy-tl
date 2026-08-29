@@ -25,7 +25,7 @@ var (
 	TagCurlyRE  = regexp.MustCompile(`\{[^\}]+\}`)
 	TagSquareRE = regexp.MustCompile(`\[[^\]]+\]`)
 
-	// TOML keys expected
+	// TOML keys expected.
 	TOMLModelKey = "ai-model"
 	TOMLKeyKey   = "opencode-api-key"
 )

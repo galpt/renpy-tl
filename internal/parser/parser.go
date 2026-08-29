@@ -15,9 +15,9 @@ import (
 	"github.com/galpt/renpy-tl/internal/config"
 )
 
-// quote table mirrors RenPy quote_unicode.
+// quote table mirrors RenPy quote unicode.
 func QuoteUnicode(s string) string {
-	// order matters: backslash first.
+	// order matters. backslash first.
 	s = strings.ReplaceAll(s, "\\", "\\\\")
 	s = strings.ReplaceAll(s, "\"", "\\\"")
 	s = strings.ReplaceAll(s, "\a", "\\a")
@@ -91,7 +91,7 @@ func decodeQuoted(quoted string) (string, bool) {
 	if len(quoted) < 2 {
 		return "", false
 	}
-	// remove backslash + actual newline inside quoted
+	// remove backslash + actual newline inside quoted.
 	if strings.Contains(quoted, "\\\n") {
 		quoted = strings.ReplaceAll(quoted, "\\\n", "")
 	}
@@ -103,7 +103,7 @@ func decodeQuoted(quoted string) (string, bool) {
 		return "", false
 	}
 	inner := quoted[1 : len(quoted)-1]
-	// unescape python style
+	// unescape python style.
 	decoded, ok := unescapePythonString(inner)
 	if !ok {
 		return "", false
@@ -111,14 +111,14 @@ func decodeQuoted(quoted string) (string, bool) {
 	if len([]byte(decoded)) > config.MaxStringBytes {
 		return "", false
 	}
-	// also ensure valid utf8
+	// also ensure valid utf8.
 	if !utf8.ValidString(decoded) {
 		return "", false
 	}
 	return decoded, true
 }
 
-// unescapePythonString handles escapes: \a \b \f \n \r \t \v \\ \' \" \x \ooo \u \U \N
+// unescapePythonString handles escapes. \a \b \f \n \r \t \v \\ \' \" \x \ooo \u \U \N.
 func unescapePythonString(s string) (string, bool) {
 	var out bytes.Buffer
 	for i := 0; i < len(s); {
@@ -128,7 +128,7 @@ func unescapePythonString(s string) (string, bool) {
 			i++
 			continue
 		}
-		// escape
+		// escape.
 		if i+1 >= len(s) {
 			return "", false
 		}
@@ -165,7 +165,7 @@ func unescapePythonString(s string) (string, bool) {
 			out.WriteByte('\v')
 			i += 2
 		case 'x':
-			// \xhh
+			// \xhh.
 			if i+3 >= len(s) {
 				return "", false
 			}
@@ -178,7 +178,7 @@ func unescapePythonString(s string) (string, bool) {
 			out.WriteByte(byte(v))
 			i += 4
 		case 'u':
-			// \uXXXX
+			// \uXXXX.
 			if i+5 >= len(s) {
 				return "", false
 			}
@@ -203,18 +203,18 @@ func unescapePythonString(s string) (string, bool) {
 			out.WriteRune(rune(v))
 			i += 10
 		case 'N':
-			// \N{name} simplified: keep literal
-			// find closing }
+			// N name simplified. keep literal.
+			// find closing brace.
 			end := strings.IndexByte(s[i:], '}')
 			if end == -1 {
 				return "", false
 			}
-			// not supported, treat as unicode replacement; skip
-			// For parity, just keep original sequence without conversion
-			// but to stay conservative, fail if encountered
+			// not supported. treat as unicode replacement. skip.
+			// For parity just keep original sequence without conversion.
+			// but to stay conservative fail if encountered.
 			return "", false
 		default:
-			// octal \ooo (1-3 digits)
+			// octal \ooo (1-3 digits).
 			if n >= '0' && n <= '7' {
 				oct := string(n)
 				j := i + 2
@@ -230,9 +230,9 @@ func unescapePythonString(s string) (string, bool) {
 				out.WriteByte(byte(v))
 				i = j
 			} else {
-				// unknown escape, keep as is (python keeps \ + char for unknown?)
-				// python literal_eval would treat unknown as error except for specific
-				// we treat as literal char
+				// unknown escape keep as is. python keeps backslash plus char for unknown.
+				// python literal eval would treat unknown as error except for specific.
+				// we treat as literal char.
 				out.WriteByte(n)
 				i += 2
 			}
@@ -248,7 +248,7 @@ func extractQuoted(line string) (string, string, *string, bool) {
 	if strings.HasPrefix(stripped, "#") {
 		stripped = strings.TrimLeft(stripped[1:], " \t")
 	}
-	// find first quote
+	// find first quote.
 	qpos := -1
 	var qchar byte
 	for i := 0; i < len(stripped); i++ {
@@ -269,7 +269,7 @@ func extractQuoted(line string) (string, string, *string, bool) {
 			speaker = &s
 		}
 	}
-	// scan for closing quote
+	// scan for closing quote.
 	escaped := false
 	end := -1
 	for i := qpos + 1; i < len(stripped); i++ {
@@ -318,10 +318,10 @@ func readTextPreserve(path string) (string, bool, error) {
 		raw = raw[3:]
 	}
 	text := string(raw)
-	// normalize line endings to \n
+	// normalize line endings to \n.
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
-	// handle backslash-newline continuation
+	// handle backslash newline continuation.
 	text = strings.ReplaceAll(text, "\\\n", "")
 	return text, hasBOM, nil
 }
@@ -338,7 +338,7 @@ func (p *Parser) ParseFile(path string) ([]interface{}, error) {
 	for i < len(lines) {
 		line := lines[i]
 		stripped := strings.TrimSpace(line)
-		if stripped == "" || strings.HasPrefix(stripped, "# TODO") {
+		if stripped == "" {
 			i++
 			continue
 		}
@@ -347,7 +347,7 @@ func (p *Parser) ParseFile(path string) ([]interface{}, error) {
 			i++
 			continue
 		}
-		// extract lang and ident via named groups
+		// extract lang and ident via named groups.
 		langIdx := config.TranslateRE.SubexpIndex("lang")
 		identIdx := config.TranslateRE.SubexpIndex("ident")
 		_ = langIdx // keep for parity
@@ -430,7 +430,7 @@ func (p *Parser) ParseFile(path string) ([]interface{}, error) {
 			}
 			continue
 		}
-		// dialogue
+		// dialogue.
 		hm := config.HashRE.FindString(ident)
 		if hm == "" {
 			i++
@@ -467,7 +467,7 @@ func (p *Parser) ParseFile(path string) ([]interface{}, error) {
 		}
 		i++
 		for i < len(lines) && strings.TrimSpace(lines[i]) == "" {
-			// if next is translate header, break
+			// if next is translate header, break.
 			if i < len(lines) && config.TranslateRE.MatchString(strings.TrimSpace(lines[i])) {
 				break
 			}
@@ -495,7 +495,7 @@ func (p *Parser) ParseFile(path string) ([]interface{}, error) {
 			continue
 		}
 		isEmpty := newDecoded == ""
-		// speaker fallback handled by caller, keep as found
+		// speaker fallback handled by caller, keep as found.
 		_ = quotedOld
 		out = append(out, DialogueBlock{
 			Kind:       "dialogue",
@@ -535,23 +535,23 @@ func (p *Parser) ParseDirectory(lang string) ([]interface{}, error) {
 		if filepath.Ext(path) != ".rpy" {
 			return nil
 		}
-		// skip symlinks
+		// skip symlinks.
 		if d.Type()&fs.ModeSymlink != 0 {
 			return nil
 		}
-		// extra check via Lstat
+		// extra check via Lstat.
 		if fi, e := os.Lstat(path); e == nil && fi.Mode()&fs.ModeSymlink != 0 {
 			return nil
 		}
 		blocks, e := p.ParseFile(path)
 		if e != nil {
-			// file too large, skip
+			// file too large, skip.
 			return nil
 		}
 		out = append(out, blocks...)
 		return nil
 	})
-	// sort for deterministic order file then lineno
+	// sort for deterministic order file then lineno.
 	sort.Slice(out, func(a, b int) bool {
 		var fa, fb string
 		var la, lb int
@@ -702,7 +702,7 @@ func (p *Parser) FindEmptyInFolder(folder string) ([]interface{}, error) {
 
 // Helper to get file name handling both separators.
 func FileBase(p string) string {
-	// normalize
+	// normalize.
 	p = strings.ReplaceAll(p, "\\", "/")
 	parts := strings.Split(p, "/")
 	return parts[len(parts)-1]
@@ -711,13 +711,13 @@ func FileBase(p string) string {
 // EscapeValid checks escaping roundtrip.
 func EscapeValid(s string) bool {
 	q := QuoteUnicode(s)
-	// wrap in quotes
+	// wrap in quotes.
 	quoted := "\"" + q + "\""
 	_, ok := decodeQuoted(quoted)
 	if !ok {
 		return false
 	}
-	// roundtrip
+	// roundtrip.
 	dec, _ := decodeQuoted(quoted)
 	return dec == s
 }
@@ -726,7 +726,7 @@ func EscapeValid(s string) bool {
 func ExtractTags(s string) map[string]int {
 	cur := config.TagCurlyRE.FindAllString(s, -1)
 	sq := config.TagSquareRE.FindAllString(s, -1)
-	// %% tokens
+	// %% tokens.
 	rePct := regexp.MustCompile(`%%`)
 	pct := rePct.FindAllString(s, -1)
 	m := make(map[string]int)

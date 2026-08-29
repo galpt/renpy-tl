@@ -28,7 +28,7 @@ GOOS=windows GOARCH=amd64 go build -o renpy-tl.exe ./cmd/renpy-tl
 
 ## Configuration
 
-Create `renpy-tl.toml` in the same directory as the binary.
+Create `renpy-tl.toml` next to the binary. As fallback it is also searched in the current working directory.
 
 ```toml
 ai-model = "muse-spark-1.2-contributor"
@@ -102,7 +102,7 @@ Check that only `new ""` became `new "TR: ..."` and that tags like `{b}` and `[p
 - `input folder not found` means you should run from the repo root or pass an absolute path.
 - `file too large: ... > 2097152` means the file exceeds 2 MB and should be split.
 - `tags mismatch` means skipped entries stay empty for manual review. Check the validator output.
-- `opencode-api-key not found` means you should create `renpy-tl.toml` next to the binary.
+- `opencode-api-key not found` means you should create `renpy-tl.toml` next to the binary or in the current working directory.
 
 ## License
 
