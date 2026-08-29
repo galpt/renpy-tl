@@ -98,6 +98,10 @@ Check that only `new ""` became `new "TR: ..."` and that tags like `{b}` and `[p
 
 Release archives include a timestamp that varies per matrix build.
 
+## Release
+
+Build and Release are triggered manually via GitHub Actions workflow_dispatch in .github/workflows/build.yml. The version input is optional. Leave it empty to auto bump the patch version from the latest tag. If no tags exist the first version is v0.1.0. When empty the workflow no longer uses Tag dev nor skips the Release job. Both Build ldflags and Release tag_name use the resolved version. Release always publishes with generated notes. Each matrix artifact gets its own YYYYMMDD-HHMMSS timestamp.
+
 ## Troubleshooting
 
 - `error: invalid language: ...` means the language must be 2 to 32 characters from `a-z0-9_` and must not contain path traversal.
