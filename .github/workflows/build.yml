@@ -69,6 +69,7 @@ jobs:
           fi
       - name: Archive
         run: |
+          # zip timestamp varies per matrix, each artifact gets its own time.
           TS=$(date -u +"%Y%m%d-%H%M%S")
           cd dist
           cp ../renpy-tl.toml.example renpy-tl.toml

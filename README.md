@@ -72,7 +72,7 @@ Per file behavior.
 - A backup named `name.rpy.bak.<timestamp>` is created before the write.
 - A temporary file is created in the same directory, flushed and synced, then atomically renamed. The directory is synced afterwards.
 - When rename crosses devices, the tool falls back to copying.
-- On Windows the `O_DIRECTORY` case is handled through a fallback open.
+- directory sync uses os.Open(dir) with fsync, with fallback handling for Windows where O_DIRECTORY is not available.
 
 Idempotent re-run yields `files_written: 0` when no empty entries remain.
 
@@ -95,6 +95,8 @@ cat testdata/output/sample.rpy
 ```
 
 Check that only `new ""` became `new "TR: ..."` and that tags like `{b}` and `[player]` remain.
+
+Release archives include a timestamp that varies per matrix build.
 
 ## Troubleshooting
 

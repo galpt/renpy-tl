@@ -15,9 +15,7 @@ import (
 	"github.com/galpt/renpy-tl/internal/parser"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
+var jitterRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // Config holds TOML values.
 type Config struct {
@@ -167,7 +165,7 @@ func (a *Adapter) TranslateChunk(units []interface{}) (map[string]string, error)
 				backoff = maxDelayNoHeader
 			}
 			// add jitter.
-			backoff += time.Duration(rand.Int63n(int64(backoff / 4)))
+			backoff += time.Duration(jitterRand.Int63n(int64(backoff / 4)))
 			time.Sleep(backoff)
 			continue
 		}
@@ -292,7 +290,7 @@ func (a *Adapter) TranslateChunk(units []interface{}) (map[string]string, error)
 			if delay > maxDelayNoHeader {
 				delay = maxDelayNoHeader
 			}
-			delay += time.Duration(rand.Int63n(int64(delay / 4)))
+			delay += time.Duration(jitterRand.Int63n(int64(delay / 4)))
 		}
 		time.Sleep(delay)
 	}

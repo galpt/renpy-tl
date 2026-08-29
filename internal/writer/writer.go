@@ -196,8 +196,7 @@ func isCrossDevice(err error) bool {
 }
 
 func fsyncDir(dir string) error {
-	// O_DIRECTORY guard for Windows.
-	// try O_DIRECTORY if available, else O_RDONLY.
+	// directory sync uses os.Open with fsync, with fallback handling for Windows where O_DIRECTORY is not available.
 	f, err := os.Open(dir)
 	if err != nil {
 		return err

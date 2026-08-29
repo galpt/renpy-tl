@@ -350,7 +350,7 @@ func (p *Parser) ParseFile(path string) ([]interface{}, error) {
 		// extract lang and ident via named groups.
 		langIdx := config.TranslateRE.SubexpIndex("lang")
 		identIdx := config.TranslateRE.SubexpIndex("ident")
-		_ = langIdx // keep for parity
+		_ = langIdx // keep for parity.
 		ident := ""
 		if identIdx >= 0 && identIdx < len(m) {
 			ident = m[identIdx]
