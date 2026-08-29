@@ -1,0 +1,94 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0) — leave empty to auto-bump patch'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run tests
+        run: go test -v ./...
+      - name: Run vet
+        run: go vet ./...
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - { goos: linux,   goarch: amd64,   name: linux-amd64   }
+          - { goos: linux,   goarch: arm64,   name: linux-arm64   }
+          - { goos: linux,   goarch: arm,     goarm: 7, name: linux-armv7 }
+          - { goos: windows, goarch: amd64,   name: windows-amd64, ext: .exe }
+          - { goos: windows, goarch: arm64,   name: windows-arm64, ext: .exe }
+          - { goos: darwin,  goarch: amd64,   name: darwin-amd64  }
+          - { goos: darwin,  goarch: arm64,   name: darwin-arm64  }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Build
+        env:
+          GOOS:        ${{ matrix.goos }}
+          GOARCH:      ${{ matrix.goarch }}
+          GOARM:       ${{ matrix.goarm }}
+          CGO_ENABLED: 0
+        run: |
+          TAG="${{ inputs.version }}"
+          if [ -z "$TAG" ]; then TAG="dev"; fi
+          mkdir -p dist
+          go build -ldflags "-s -w -X main.Version=${TAG}" -o "dist/renpy-tl-${{ matrix.name }}${{ matrix.ext }}" ./cmd/renpy-tl
+      - name: Archive
+        run: |
+          cd dist
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            zip "renpy-tl-${{ matrix.name }}.zip" "renpy-tl-${{ matrix.name }}${{ matrix.ext }}"
+          else
+            tar -czf "renpy-tl-${{ matrix.name }}.tar.gz" "renpy-tl-${{ matrix.name }}"
+          fi
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: renpy-tl-${{ matrix.name }}
+          path: dist/renpy-tl-${{ matrix.name }}.*
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: inputs.version != ''
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Collect release assets
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release/ \;
+          ls -lh release/
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          files: release/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
