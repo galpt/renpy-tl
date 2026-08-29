@@ -43,6 +43,8 @@ jobs:
           - { goos: darwin,  goarch: arm64,   name: darwin-arm64  }
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -55,7 +57,22 @@ jobs:
           CGO_ENABLED: 0
         run: |
           TAG="${{ inputs.version }}"
-          if [ -z "$TAG" ]; then TAG="dev"; fi
+          if [ -z "$TAG" ]; then
+            LATEST=$(git tag --sort=-v:refname | head -n1)
+            if [ -z "$LATEST" ]; then
+              TAG="v0.1.0"
+            else
+              VER=${LATEST#v}
+              IFS=. read -r MAJOR MINOR PATCH <<< "$VER"
+              if ! [[ "$MAJOR" =~ ^[0-9]+$ ]]; then MAJOR=0; fi
+              if ! [[ "$MINOR" =~ ^[0-9]+$ ]]; then MINOR=0; fi
+              if ! [[ "$PATCH" =~ ^[0-9]+$ ]]; then PATCH=0; fi
+              PATCH=$((PATCH+1))
+              TAG="v${MAJOR}.${MINOR}.${PATCH}"
+            fi
+            echo "Auto bump $LATEST -> $TAG"
+          fi
+          echo "Building $TAG"
           mkdir -p dist
           go build -ldflags "-s -w -X main.Version=${TAG}" -o "dist/renpy-tl-${{ matrix.name }}${{ matrix.ext }}" ./cmd/renpy-tl
       - name: Ensure zip
@@ -90,9 +107,31 @@ jobs:
   release:
     runs-on: ubuntu-latest
     needs: build
-    if: inputs.version != ''
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve version
+        id: ver
+        run: |
+          TAG="${{ inputs.version }}"
+          if [ -z "$TAG" ]; then
+            LATEST=$(git tag --sort=-v:refname | head -n1)
+            if [ -z "$LATEST" ]; then
+              TAG="v0.1.0"
+            else
+              VER=${LATEST#v}
+              IFS=. read -r MAJOR MINOR PATCH <<< "$VER"
+              if ! [[ "$MAJOR" =~ ^[0-9]+$ ]]; then MAJOR=0; fi
+              if ! [[ "$MINOR" =~ ^[0-9]+$ ]]; then MINOR=0; fi
+              if ! [[ "$PATCH" =~ ^[0-9]+$ ]]; then PATCH=0; fi
+              PATCH=$((PATCH+1))
+              TAG="v${MAJOR}.${MINOR}.${PATCH}"
+            fi
+            echo "Auto bump $LATEST -> $TAG"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved $TAG"
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -105,7 +144,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.version }}
+          tag_name: ${{ steps.ver.outputs.tag }}
           files: release/*
           generate_release_notes: true
         env:
